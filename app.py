@@ -7,13 +7,13 @@ Original file is located at
     https://colab.research.google.com/drive/1CYWtGsw4VDthXIz0LVWNjto6fqDXnc9e
 """
 
-pip install pypdf
-pip install PyMuPDF
-pip install chromadb
-pip install langchain
-pip install openai
-pip install tiktoken
-pip install faiss-gpu
+!pip install pypdf
+!pip install PyMuPDF
+!pip install chromadb
+!pip install langchain
+!pip install openai
+!pip install tiktoken
+!pip install faiss-gpu
 
 from langchain.chains.router import MultiRetrievalQAChain
 from langchain.llms import OpenAI
