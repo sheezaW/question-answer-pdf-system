@@ -108,7 +108,6 @@ def get_gpt_answer(context, question, document_source, api_key):
         st.error("An error occurred while calling the GPT-3.5 Turbo API.")
         st.error(str(e))
 
-# Streamlit app
 # ...
 
 # Streamlit app
@@ -117,7 +116,7 @@ def main():
     st.sidebar.title("Settings")
 
     # File paths to your documents
-    uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'])
+    uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'], key="document_uploader")
 
     if uploaded_files:
         document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
@@ -143,9 +142,6 @@ def main():
                     st.success("Answer: " + answer)
                 else:
                     st.error("No relevant context found.")
-
-if __name__ == "__main__":
-    main()
 
 if __name__ == "__main__":
     main()
