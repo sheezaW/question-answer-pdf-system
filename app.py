@@ -109,6 +109,9 @@ def get_gpt_answer(context, question, document_source, api_key):
         st.error(str(e))
 
 # Streamlit app
+# ...
+
+# Streamlit app
 def main():
     st.title("Question Answering with Documents")
     st.sidebar.title("Settings")
@@ -140,6 +143,9 @@ def main():
                     st.success("Answer: " + answer)
                 else:
                     st.error("No relevant context found.")
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
