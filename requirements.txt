@@ -5,3 +5,4 @@ tiktoken
 streamlit
 streamlit-extras
 faiss-cpu==1.7.2
+spacy
