@@ -94,8 +94,7 @@ def similarity_search(chain, question):
     return retrieved_context
 
 
-# Function to get an answer using OpenAI GPT-3.5 Turbo API
-def get_gpt_answer(context, question, document_source):
+def get_gpt_answer(context, question, document_source, api_key):
     try:
         # Call OpenAI's GPT-3.5 Turbo API to get an answer
         response = openai.Completion.create(
