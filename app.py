@@ -7,7 +7,6 @@ from langchain.vectorstores import FAISS
 import openai  # Make sure you have the 'openai' library installed
 import os
 
-
 # Function to initialize the MultiRetrievalQAChain
 def initialize_qa_chain(document_paths, openai_api_key):
     # Initialize an empty list to store document objects
@@ -48,8 +47,6 @@ def initialize_qa_chain(document_paths, openai_api_key):
     chain = None
     if openai_api_key:
         try:
-            # Set the OpenAI API key
-            os.environ["OPENAI_API_KEY"] = openai_api_key
             OpenAI(api_key=openai_api_key)
             chain = MultiRetrievalQAChain.from_retrievers(OpenAI(), retriever_infos)
         except Exception as e:
@@ -58,7 +55,6 @@ def initialize_qa_chain(document_paths, openai_api_key):
 
     return chain
 
-# Function to perform similarity search and retrieve context
 def similarity_search(chain, question, document_paths, openai_api_key):
     retrieved_context = None
     if chain and question:
@@ -96,9 +92,6 @@ def similarity_search(chain, question, document_paths, openai_api_key):
             st.error(str(e))
     return retrieved_context
 
-
-
-
 def get_gpt_answer(context, question, document_source, api_key):
     try:
         # Call OpenAI's GPT-3.5 Turbo API to get an answer
@@ -110,7 +103,7 @@ def get_gpt_answer(context, question, document_source, api_key):
         )
 
         answer = response.choices[0].text.strip()
-        return answerf
+        return answer
     except Exception as e:
         st.error("An error occurred while calling the GPT-3.5 Turbo API.")
         st.error(str(e))
@@ -140,10 +133,10 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 # Perform similarity search to retrieve context
-                retrieved_context = similarity_search(chain, question, document_paths,openai_api_key)
+                retrieved_context = similarity_search(chain, question, document_paths, openai_api_key)
                 if retrieved_context:
                     # Now you can pass the retrieved context to GPT for answering
-                    answer = get_gpt_answer(retrieved_context, question, "source_document")
+                    answer = get_gpt_answer(retrieved_context, question, "source_document", openai_api_key)
                     st.success("Answer: " + answer)
                 else:
                     st.error("No relevant context found.")
