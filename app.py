@@ -14,7 +14,12 @@ with st.sidebar:
     - streamlit
     - langchain
     - OpenAI
-    '''    
+    Intructions:
+    - You can add multiple documents at a time
+    - Make sure that you first convert your documents into the .txt format so multiple documents can be read at a time
+    - Even one document (in .txt format) can be uploaded    
+    ''' 
+                
     )
     add_vertical_space(5)
     st.write('Made by Solutyics')
