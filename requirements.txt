@@ -1,6 +1,7 @@
 langchain
 openai
 chromadb
+db-sqlite3
 tiktoken
 streamlit
 streamlit-extras
