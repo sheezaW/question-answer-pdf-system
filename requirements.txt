@@ -1,4 +1,5 @@
 langchain
+pypdf2
 openai
 chromadb
 db-sqlite3
