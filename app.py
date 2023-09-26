@@ -79,10 +79,9 @@ def similarity_search(chain, question, document_paths, openai_api_key):
             candidate_context = " ".join(candidate_contexts)
 
             # Use the OpenAI GPT-3 API to generate an answer based on the question and candidate context
-            response = openai.Completion.create(
-                engine="text-davinci-003",  # Use the "gpt-3.5-turbo" engine
-                prompt=f"Context: {candidate_context}\nQuestion: {question}\nAnswer:",
-                max_tokens=50,  # Adjust max tokens as needed
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",  # Use the "gpt-3.5-turbo" engine
+                messages=f"Context: {candidate_context}\nQuestion: {question}\nAnswer:",
                 api_key=openai_api_key  # Use the OpenAI API key
             )
 
