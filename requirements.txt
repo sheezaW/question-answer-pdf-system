@@ -1,5 +1,7 @@
 langchain
 openai
 chromadb
-pypdf
 tiktoken
+streamlit
+streamlit-extras
+faiss-cpu-1.1.7
