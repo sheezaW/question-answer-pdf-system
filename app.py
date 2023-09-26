@@ -1,29 +1,37 @@
 import streamlit as st
-from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.chains.router import MultiRetrievalQAChain
 from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.document_loaders import TextLoader
 from langchain.vectorstores import FAISS
 import os
-with st.sidebar:
-    st.title('Document Chat App')
-    st.markdown('''
-    ## About
-    This app is an OpenAI-powered Chatbot built using:
-    - streamlit
-    - langchain
-    - OpenAI
-    Intructions:
-    - You can add multiple documents at a time
-    - Make sure that you first convert your documents into the .txt format so multiple documents can be read at a time
-    - Even one document (in .txt format) can be uploaded    
-    ''' 
-                
-    )
-    add_vertical_space(5)
-    st.write('Made by Solutyics')
+import spacy
 
+# Load the spaCy English model
+nlp = spacy.load("en_core_web_sm")
+
+# Initialize a dictionary to store document content
+document_contents = {}
+
+# Function to extract relevant content
+def extract_relevant_content(document_contents, question):
+    relevant_content = []
+
+    # Process the user's question with spaCy
+    question_doc = nlp(question)
+
+    # Iterate through each document's content
+    for document_name, document_content in document_contents.items():
+        # Process the document with spaCy
+        doc = nlp(document_content)
+
+        # Iterate through sentences in the document
+        for sentence in doc.sents:
+            # Check if the sentence contains entities or keywords from the question
+            if any(entity.text in sentence.text or entity.text.lower() in sentence.text.lower() for entity in question_doc.ents):
+                relevant_content.append(f"From document '{document_name}': {sentence.text}")
+
+    return relevant_content
 
 # Function to initialize the MultiRetrievalQAChain
 def initialize_qa_chain(document_paths):
@@ -38,6 +46,10 @@ def initialize_qa_chain(document_paths):
             # Load the text file with UTF-8 encoding
             with open(document_path, 'r', encoding='utf-8') as file:
                 document_content = file.read()
+
+            # Store the document content in the dictionary
+            document_name = os.path.basename(document_path)
+            document_contents[document_name] = document_content
 
             # Split the document
             document = TextLoader(document_content).load_and_split()
@@ -101,8 +113,11 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 try:
-                    answer, relevant_content = chain.run_with_relevant_content(question)
+                    answer = chain.run(question)
                     st.success("Answer: " + answer)
+                    
+                    # Extract relevant content based on question
+                    relevant_content = extract_relevant_content(document_contents, question)
                     
                     # Display relevant content
                     if relevant_content:
