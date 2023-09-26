@@ -58,7 +58,8 @@ def initialize_qa_chain(document_paths, openai_api_key):
 
     return chain
 
-def similarity_search(chain, question):
+# Function to perform similarity search and retrieve context
+def similarity_search(chain, question, document_paths):
     retrieved_context = None
     if chain and question:
         try:
@@ -94,6 +95,7 @@ def similarity_search(chain, question):
     return retrieved_context
 
 
+
 def get_gpt_answer(context, question, document_source, api_key):
     try:
         # Call OpenAI's GPT-3.5 Turbo API to get an answer
@@ -105,7 +107,7 @@ def get_gpt_answer(context, question, document_source, api_key):
         )
 
         answer = response.choices[0].text.strip()
-        return answer
+        return answerf
     except Exception as e:
         st.error("An error occurred while calling the GPT-3.5 Turbo API.")
         st.error(str(e))
@@ -135,8 +137,7 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 # Perform similarity search to retrieve context
-                retrieved_context = similarity_search(chain, question)
-
+                retrieved_context = similarity_search(chain, question, document_paths)
                 if retrieved_context:
                     # Now you can pass the retrieved context to GPT for answering
                     answer = get_gpt_answer(retrieved_context, question, "source_document")
