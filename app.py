@@ -4,16 +4,19 @@ from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.document_loaders import TextLoader
 from langchain.vectorstores import FAISS
+import openai  # Make sure you have the 'openai' library installed
 import os
 
-# Initialize conversation history as an empty list
-conversation_history = []
+# Set your OpenAI API key here
+os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY"
 
-# Initialize the MultiRetrievalQAChain
-def initialize_qa_chain(document_paths):
+# Function to initialize the MultiRetrievalQAChain
+def initialize_qa_chain(document_paths, openai_api_key):
     # Initialize an empty list to store document objects
     documents = []
-    retriever_infos = []
+
+    # Create retrievers for each document
+    retrievers = []
 
     for document_path in document_paths:
         try:
@@ -21,35 +24,34 @@ def initialize_qa_chain(document_paths):
             with open(document_path, 'r', encoding='utf-8') as file:
                 document_content = file.read()
 
-            # Create a TextLoader for the document content
-            text_loader = TextLoader(document_content)
-
             # Split the document
-            document = text_loader.load_and_split()
+            document = TextLoader(document_content).load_and_split()
             documents.append(document)
 
             # Create retriever
-            retriever = FAISS.from_documents(text_loader, OpenAIEmbeddings()).as_retriever()
-            retriever_info = {
-                "name": f"document_{len(documents) - 1}",
-                "description": f"Good for answering questions about document {len(documents) - 1}",
-                "retriever": retriever
-            }
-            retriever_infos.append(retriever_info)
+            retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
+            retrievers.append(retriever)
         except Exception as e:
+            # st.error(f"Error loading document {document_path}: {str(e)}")
             pass
 
-    # Streamlit input field for API key
-    openai_api_key = st.text_input("Enter your OpenAI API Key", "")
+    # Define the retriever information
+    retriever_infos = []
 
-    # Set the OpenAI API key
-    os.environ["OPENAI_API_KEY"] = openai_api_key
+    for i, retriever in enumerate(retrievers):
+        retriever_info = {
+            "name": f"document_{i}",
+            "description": f"Good for answering questions about document {i}",
+            "retriever": retriever
+        }
+        retriever_infos.append(retriever_info)
 
-    # Create the MultiRetrievalQAChain if API key is provided
+    # Create the MultiRetrievalQAChain
     chain = None
     if openai_api_key:
         try:
             # Set the OpenAI API key
+            os.environ["OPENAI_API_KEY"] = openai_api_key
             OpenAI(api_key=openai_api_key)
             chain = MultiRetrievalQAChain.from_retrievers(OpenAI(), retriever_infos)
         except Exception as e:
@@ -58,9 +60,41 @@ def initialize_qa_chain(document_paths):
 
     return chain
 
+# Function to perform similarity search and retrieve context
+def similarity_search(chain, question):
+    retrieved_context = None
+    if chain and question:
+        try:
+            # Perform similarity search to retrieve context
+            retrieved_context = chain.similarity_search(question)
+        except Exception as e:
+            st.error("An error occurred while performing similarity search.")
+            st.error(str(e))
+    return retrieved_context
+
+# Function to get an answer using OpenAI GPT-3.5 Turbo API
+def get_gpt_answer(context, question, document_source):
+    try:
+        # Set your OpenAI GPT-3.5 Turbo API key here
+        api_key = "YOUR_OPENAI_API_KEY"
+
+        # Call OpenAI's GPT-3.5 Turbo API to get an answer
+        response = openai.Completion.create(
+            engine="text-davinci-003",  # Use the "gpt-3.5-turbo" engine
+            prompt=f"Context: {context}\nQuestion: {question}\nAnswer (from document {document_source}):",
+            max_tokens=50,  # Adjust max tokens as needed
+            api_key=api_key
+        )
+
+        answer = response.choices[0].text.strip()
+        return answer
+    except Exception as e:
+        st.error("An error occurred while calling the GPT-3.5 Turbo API.")
+        st.error(str(e))
+
 # Streamlit app
 def main():
-    st.title("Document Chat App")
+    st.title("Question Answering with Documents")
     st.sidebar.title("Settings")
 
     # File paths to your documents
@@ -68,37 +102,29 @@ def main():
 
     if uploaded_files:
         document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
-        chain = initialize_qa_chain(document_paths)
+
+        # Input OpenAI API key
+        openai_api_key = st.text_input("Enter your OpenAI API Key", "")
+
+        chain = initialize_qa_chain(document_paths, openai_api_key)
 
         # Display a successful document upload message
         st.success("Documents successfully uploaded!")
 
-    # Input question
-    user_input = st.text_input("You:", "")
+        # Input question
+        question = st.text_input("Ask a question", "")
 
-    if st.button("Send"):
-        if chain and user_input:
-            try:
-                # Append user's message to the conversation history
-                conversation_history.append(f"You: {user_input}")
-                
-                # Get the model's response
-                response = chain.run(" ".join(conversation_history))
-                
-                # Append model's response to the conversation history
-                conversation_history.append(f"Model: {response}")
-                
-                # Display the conversation in a chat-like format
-                st.text("Conversation:")
-                for msg in conversation_history:
-                    if msg.startswith("You:"):
-                        st.text_input("", msg[5:], key=msg)
-                    else:
-                        st.text_input("", msg[7:], key=msg)
-                
-            except Exception as e:
-                st.error("An error occurred while processing the question.")
-                st.error(str(e))
+        if st.button("Get Answer"):
+            if chain and question:
+                # Perform similarity search to retrieve context
+                retrieved_context = similarity_search(chain, question)
+
+                if retrieved_context:
+                    # Now you can pass the retrieved context to GPT for answering
+                    answer = get_gpt_answer(retrieved_context, question, "source_document")
+                    st.success("Answer: " + answer)
+                else:
+                    st.error("No relevant context found.")
 
 if __name__ == "__main__":
     main()
