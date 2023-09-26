@@ -94,10 +94,9 @@ def similarity_search(chain, question, document_paths, openai_api_key):
 def get_gpt_answer(context, question, document_source, api_key):
     try:
         # Call OpenAI's GPT-3.5 Turbo API to get an answer
-        response = openai.Completion.create(
-            engine="text-davinci-003",  # Use the "gpt-3.5-turbo" engine
-            prompt=f"Context: {context}\nQuestion: {question}\nAnswer (from document {document_source}):",
-            max_tokens=50,  # Adjust max tokens as needed
+        response = openai.ChatCompletion.create(
+            models="gpt-3.5-turbo",  # Use the "gpt-3.5-turbo" engine
+            messages=f"Context: {context}\nQuestion: {question}\nAnswer (from document {document_source}):",
             api_key=api_key
         )
 
