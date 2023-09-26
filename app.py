@@ -58,7 +58,6 @@ def initialize_qa_chain(document_paths, openai_api_key):
 
     return chain
 
-# Function to perform similarity search and retrieve context
 def similarity_search(chain, question, document_paths):
     retrieved_context = None
     if chain and question:
@@ -79,16 +78,18 @@ def similarity_search(chain, question, document_paths):
                     # Handle any errors while loading documents
                     pass
 
-            # Use the OpenAI Search API to find the most relevant context
-            search_response = openai.Answer.create(
-                search_model="davinci",
-                question=question,
-                documents=candidate_contexts,
-                max_responses=1  # Adjust as needed
+            # Join the candidate contexts into a single string
+            candidate_context = " ".join(candidate_contexts)
+
+            # Use the OpenAI GPT-3 API to generate an answer based on the question and candidate context
+            response = openai.Completion.create(
+                engine="text-davinci-003",  # Use the "gpt-3.5-turbo" engine
+                prompt=f"Context: {candidate_context}\nQuestion: {question}\nAnswer:",
+                max_tokens=50,  # Adjust max tokens as needed
+                api_key=openai_api_key  # Use the OpenAI API key
             )
 
-            if search_response.data:
-                retrieved_context = search_response.data[0].document
+            retrieved_context = response.choices[0].text.strip()
         except Exception as e:
             st.error("An error occurred while performing similarity search.")
             st.error(str(e))
