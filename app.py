@@ -5,6 +5,8 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.document_loaders import TextLoader
 from langchain.vectorstores import FAISS
 import os
+import spacy_setup  # Import the setup script
+spacy_setup.setup_spacy() # Call the setup function to install the language model
 import spacy
 
 # Load the spaCy English model
