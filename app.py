@@ -51,7 +51,7 @@ def initialize_qa_chain(document_paths):
     for i, retriever in enumerate(retrievers):
         retriever_info = {
             "name": f"document_{i}",
-            "description": f"Good for answering questions about document {i}",
+            "description": f"Good for answering questions about document {i} and telling the reference from the document",
             "retriever": retriever
         }
         retriever_infos.append(retriever_info)
