@@ -58,7 +58,6 @@ def initialize_qa_chain(document_paths, openai_api_key):
 
     return chain
 
-# Function to perform similarity search and retrieve context
 def similarity_search(chain, question):
     retrieved_context = None
     if chain and question:
@@ -66,10 +65,18 @@ def similarity_search(chain, question):
             # Initialize an empty list to store candidate contexts
             candidate_contexts = []
 
-            # Iterate through the retrievers and get their documents
-            for retriever_info in chain.retriever_infos:
-                retriever = retriever_info["retriever"]
-                candidate_contexts.extend([doc.text for doc in retriever.documents])
+            # Iterate through the documents you loaded
+            for document_path in document_paths:
+                try:
+                    # Load the text file with UTF-8 encoding
+                    with open(document_path, 'r', encoding='utf-8') as file:
+                        document_content = file.read()
+                    
+                    # Add the document content to the candidate contexts
+                    candidate_contexts.append(document_content)
+                except Exception as e:
+                    # Handle any errors while loading documents
+                    pass
 
             # Use the OpenAI Search API to find the most relevant context
             search_response = openai.Answer.create(
@@ -90,9 +97,6 @@ def similarity_search(chain, question):
 # Function to get an answer using OpenAI GPT-3.5 Turbo API
 def get_gpt_answer(context, question, document_source):
     try:
-        # Set your OpenAI GPT-3.5 Turbo API key here
-        api_key = "YOUR_OPENAI_API_KEY"
-
         # Call OpenAI's GPT-3.5 Turbo API to get an answer
         response = openai.Completion.create(
             engine="text-davinci-003",  # Use the "gpt-3.5-turbo" engine
