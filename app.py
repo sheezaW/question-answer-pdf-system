@@ -1,137 +1,69 @@
 import streamlit as st
-from langchain.chains.router import MultiRetrievalQAChain
-from langchain.llms import OpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.document_loaders import TextLoader
-from langchain.vectorstores import FAISS
 import os
-import spacy
-import openai
+import openai  # Make sure to install the 'openai' library using 'pip install openai'
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.embeddings.cohere import CohereEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores.elastic_vector_search import ElasticVectorSearch
+from langchain.vectorstores import Chroma
+from langchain.docstore.document import Document
+from langchain.chains.question_answering import load_qa_chain
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
 
-# Load the spaCy English model
-nlp = spacy.load("en_core_web_sm")
-
-# Initialize a dictionary to store document content
-document_contents = {}
-
-# Function to extract relevant content
-def extract_relevant_content(document_contents, question):
-    relevant_content = []
-
-    # Process the user's question with spaCy
-    question_doc = nlp(question)
-
-    # Iterate through each document's content
-    for document_name, document_content in document_contents.items():
-        # Process the document with spaCy
-        doc = nlp(document_content)
-
-        # Iterate through sentences in the document
-        for sentence in doc.sents:
-            # Check if the sentence contains entities or keywords from the question
-            if any(entity.text in sentence.text or entity.text.lower() in sentence.text.lower() for entity in question_doc.ents):
-                relevant_content.append(f"From document '{document_name}': {sentence.text}")
-
-    return relevant_content
-
-# Function to initialize the MultiRetrievalQAChain
-def initialize_qa_chain(document_paths):
-    # Initialize an empty list to store document objects
-    documents = []
-
-    # Create retrievers for each document
-    retrievers = []
-
-    for document_path in document_paths:
-        try:
-            # Load the text file with UTF-8 encoding
-            with open(document_path, 'r', encoding='utf-8') as file:
-                document_content = file.read()
-
-            # Store the document content in the dictionary
-            document_name = os.path.basename(document_path)
-            document_contents[document_name] = document_content
-
-            # Split the document
-            document = TextLoader(document_content).load_and_split()
-            documents.append(document)
-
-            # Create retriever
-            retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
-            retrievers.append(retriever)
-        except Exception as e:
-            # st.error(f"Error loading document {document_path}: {str(e)}")
-            pass
-
-        # Define the retriever information
-        retriever_infos = []
-
-    for i, retriever in enumerate(retrievers):
-        retriever_info = {
-            "name": f"document_{i}",
-            "description": f"Good for answering questions from document {i} and telling the reference from the document",
-            "retriever": retriever
-        }
-        retriever_infos.append(retriever_info)
-
-    # Streamlit input field for API key
-    openai_api_key = st.text_input("Enter your OpenAI API Key", "")
-
+# Function to load the document and perform question-answering
+def load_document_and_answer(api_key, query, uploaded_file):
     # Set the OpenAI API key
-    os.environ["OPENAI_API_KEY"] = openai_api_key
+    openai.api_key = api_key
 
-    # Create the MultiRetrievalQAChain if API key is provided
-    chain = None
-    if openai_api_key:
-        try:
-            # Set the OpenAI API key
-            OpenAI(api_key=openai_api_key)
-            chain = MultiRetrievalQAChain.from_retrievers(OpenAI(), retriever_infos)
-        except Exception as e:
-            st.error("An error occurred while initializing the chain.")
-            st.error(str(e))
+    state_of_the_union = uploaded_file.read().decode("utf-8")
 
-    return chain
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_text(state_of_the_union)
+    embeddings = OpenAIEmbeddings()
+    docsearch = Chroma.from_texts(
+        texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
+    )
 
-# Streamlit app
-def main():
-    st.title("Question Answering with Documents")
-    st.sidebar.title("Settings")
+    docs = docsearch.similarity_search(query)
 
-    # File paths to your documents
-    uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'])
+    template = """You are a chatbot having a conversation with a human.
+    
+    Given the following extracted parts of a long document and a question, create a final answer.
 
-    if uploaded_files:
-        document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
-        chain = initialize_qa_chain(document_paths)
+    {context}
 
-        # Display a successful document upload message
-        st.success("Documents successfully uploaded!")
+    {chat_history}
+    Human: {human_input}
+    Chatbot:"""
 
-        # Input question
-        question = st.text_input("Ask a question", "")
+    prompt = PromptTemplate(
+        input_variables=["chat_history", "human_input", "context"], template=template
+    )
+    memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
+    chain = load_qa_chain(
+        OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt
+    )
 
-        if st.button("Get Answer"):
-            if chain and question:
-                try:
-                    # Extract relevant content based on question
-                    relevant_content = extract_relevant_content(document_contents, question)
+    chain_result = chain({"input_documents": docs, "human_input": query}, return_only_outputs=True)
+    chat_history = chain.memory.buffer
 
-                    # Display relevant content
-                    if relevant_content:
-                        st.subheader("Relevant Content:")
-                        for content in relevant_content:
-                            st.write(content)
+    return chain_result, chat_history
 
-                    # Use OpenAI's GPT model to answer the question
-                    answer = openai.ChatCompletion.create(
-                        model="gpt-3.5-turbo",  # Choose the appropriate GPT model engine
-                        messages=question,
-                        )
-                    st.success("Answer: " + answer.choices[0].text)
-                except Exception as e:
-                    st.error("An error occurred while processing the question.")
-                    st.error(str(e))
+# Streamlit UI
+st.title("Chatbot with Document Search")
+api_key = st.text_input("Enter your OpenAI API Key:")
+query = st.text_input("Ask a question:", "What is mout-on")
 
-if __name__ == "__main__":
-    main()
+# Allow users to upload a file
+uploaded_file = st.file_uploader("Upload a document (TXT file):")
+
+if st.button("Get Answer") and uploaded_file and api_key:
+    chain_result, chat_history = load_document_and_answer(api_key, query, uploaded_file)
+    st.write("Chatbot Response:")
+    st.write(chain_result)
+    st.write("Conversation History:")
+    st.write(chat_history)
+
+# Note: The user can input the OpenAI API key, query, and upload a file at the same time.
