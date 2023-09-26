@@ -6,4 +6,4 @@ streamlit
 streamlit-extras
 faiss-cpu==1.7.2
 spacy
-en-core-web-sm
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
