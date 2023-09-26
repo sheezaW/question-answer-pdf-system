@@ -28,8 +28,17 @@ def load_document_and_answer(api_key, query, uploaded_file):
 
     docs = docsearch.similarity_search(query)
 
+    # Format the user message as required by OpenAI API
+    user_message = {
+        "role": "user",
+        "content": query
+    }
+
+    # Create a list of messages
+    messages = [user_message]
+
     template = """You are a chatbot having a conversation with a human.
-    
+
     Given the following extracted parts of a long document and a question, create a final answer.
 
     {context}
@@ -46,24 +55,28 @@ def load_document_and_answer(api_key, query, uploaded_file):
         OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt
     )
 
-    chain_result = chain({"input_documents": docs, "human_input": query}, return_only_outputs=True)
-    chat_history = chain.memory.buffer
+    # Use the messages as input to the OpenAI API
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages
+    )
 
-    return chain_result, chat_history
+    # Extract the chat history from the response
+    chat_history = response['choices'][0]['message']['content']
+
+    return chat_history
 
 # Streamlit UI
 st.title("Chatbot with Document Search")
 api_key = st.text_input("Enter your OpenAI API Key:")
-query = st.text_input("Ask a question:", "What is mout-on")
+query = st.text_input("Ask a question:", "What is the paradox of Levi-Strauss's myth?")
 
 # Allow users to upload a file
 uploaded_file = st.file_uploader("Upload a document (TXT file):")
 
 if st.button("Get Answer") and uploaded_file and api_key:
-    chain_result, chat_history = load_document_and_answer(api_key, query, uploaded_file)
+    chat_history = load_document_and_answer(api_key, query, uploaded_file)
     st.write("Chatbot Response:")
-    st.write(chain_result)
-    st.write("Conversation History:")
     st.write(chat_history)
 
 # Note: The user can input the OpenAI API key, query, and upload a file at the same time.
