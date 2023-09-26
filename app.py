@@ -6,6 +6,7 @@ from langchain.document_loaders import TextLoader
 from langchain.vectorstores import FAISS
 import os
 import spacy
+import openai
 
 # Load the spaCy English model
 nlp = spacy.load("en_core_web_sm")
@@ -59,7 +60,7 @@ def initialize_qa_chain(document_paths):
             retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
             retrievers.append(retriever)
         except Exception as e:
-            #st.error(f"Error loading document {document_path}: {str(e)}")
+            # st.error(f"Error loading document {document_path}: {str(e)}")
             pass
 
         # Define the retriever information
@@ -76,7 +77,7 @@ def initialize_qa_chain(document_paths):
     # Streamlit input field for API key
     openai_api_key = st.text_input("Enter your OpenAI API Key", "")
 
-# Set the OpenAI API key
+    # Set the OpenAI API key
     os.environ["OPENAI_API_KEY"] = openai_api_key
 
     # Create the MultiRetrievalQAChain if API key is provided
@@ -92,6 +93,7 @@ def initialize_qa_chain(document_paths):
 
     return chain
 
+# Streamlit app
 def main():
     st.title("Question Answering with Documents")
     st.sidebar.title("Settings")
@@ -99,12 +101,9 @@ def main():
     # File paths to your documents
     uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'])
 
-    # Streamlit input field for API key
-    openai_api_key = st.text_input("Enter your OpenAI API Key", "")
-
     if uploaded_files:
         document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
-        chain = initialize_qa_chain(document_paths, openai_api_key)
+        chain = initialize_qa_chain(document_paths)
 
         # Display a successful document upload message
         st.success("Documents successfully uploaded!")
@@ -115,17 +114,22 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 try:
-                    answer = chain.run(question)
-                    st.success("Answer: " + answer)
-                    
                     # Extract relevant content based on question
                     relevant_content = extract_relevant_content(document_contents, question)
-                    
+
                     # Display relevant content
                     if relevant_content:
                         st.subheader("Relevant Content:")
                         for content in relevant_content:
-                            st.write(content)  # Display relevant content on the screen
+                            st.write(content)
+
+                    # Use OpenAI's GPT model to answer the question
+                    answer = openai.Completion.create(
+                        engine="text-davinci-002",  # Choose the appropriate GPT model engine
+                        prompt=question,
+                        max_tokens=900  # Adjust the max_tokens as needed
+                    )
+                    st.success("Answer: " + answer.choices[0].text)
                 except Exception as e:
                     st.error("An error occurred while processing the question.")
                     st.error(str(e))
