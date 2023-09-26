@@ -58,7 +58,8 @@ def initialize_qa_chain(document_paths, openai_api_key):
 
     return chain
 
-def similarity_search(chain, question, document_paths):
+# Function to perform similarity search and retrieve context
+def similarity_search(chain, question, document_paths, openai_api_key):
     retrieved_context = None
     if chain and question:
         try:
@@ -94,6 +95,7 @@ def similarity_search(chain, question, document_paths):
             st.error("An error occurred while performing similarity search.")
             st.error(str(e))
     return retrieved_context
+
 
 
 
@@ -138,7 +140,7 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 # Perform similarity search to retrieve context
-                retrieved_context = similarity_search(chain, question, document_paths)
+                retrieved_context = similarity_search(chain, question, document_paths,openai_api_key)
                 if retrieved_context:
                     # Now you can pass the retrieved context to GPT for answering
                     answer = get_gpt_answer(retrieved_context, question, "source_document")
