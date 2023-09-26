@@ -4,4 +4,4 @@ chromadb
 tiktoken
 streamlit
 streamlit-extras
-faiss-cpu-1.1.7
+faiss-cpu
