@@ -61,12 +61,24 @@ def initialize_qa_chain(document_paths, openai_api_key):
     return chain
 
 # Function to perform similarity search and retrieve context
+# Function to perform similarity search and retrieve context
 def similarity_search(chain, question):
     retrieved_context = None
     if chain and question:
         try:
-            # Perform similarity search to retrieve context
-            retrieved_context = chain.similarity_search(question)
+            # Create a list of candidate contexts from all documents
+            candidate_contexts = [doc.text for doc in chain.documents]
+
+            # Use the OpenAI Search API to find the most relevant context
+            search_response = openai.Answer.create(
+                search_model="davinci",
+                question=question,
+                documents=candidate_contexts,
+                max_responses=1  # Adjust as needed
+            )
+
+            if search_response.data:
+                retrieved_context = search_response.data[0].document
         except Exception as e:
             st.error("An error occurred while performing similarity search.")
             st.error(str(e))
