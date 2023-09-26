@@ -1,80 +1,106 @@
 import streamlit as st
-import os
-import openai  # Make sure to install the 'openai' library using 'pip install openai'
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.embeddings.cohere import CohereEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores.elastic_vector_search import ElasticVectorSearch
-from langchain.vectorstores import Chroma
-from langchain.docstore.document import Document
-from langchain.chains.question_answering import load_qa_chain
+from streamlit_extras.add_vertical_space import add_vertical_space
+from langchain.chains.router import MultiRetrievalQAChain
 from langchain.llms import OpenAI
-from langchain.prompts import PromptTemplate
-from langchain.memory import ConversationBufferMemory
-
-# Function to load the document and perform question-answering
-def load_document_and_answer(query, uploaded_file):
-    state_of_the_union = uploaded_file.read().decode("utf-8")
-
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_text(state_of_the_union)
-    embeddings = OpenAIEmbeddings()
-    docsearch = Chroma.from_texts(
-        texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.document_loaders import TextLoader
+from langchain.vectorstores import FAISS
+import os
+with st.sidebar:
+    st.title('Document Chat App')
+    st.markdown('''
+    ## About
+    This app is an OpenAI-powered Chatbot built using:
+    - streamlit
+    - langchain
+    - OpenAI
+    '''    
     )
+    add_vertical_space(5)
+    st.write('Made by Solutyics')
 
-    docs = docsearch.similarity_search(query)
 
-    # Format the user message as required by OpenAI API
-    user_message = {
-        "role": "user",
-        "content": query
-    }
+# Function to initialize the MultiRetrievalQAChain
+def initialize_qa_chain(document_paths):
+    # Initialize an empty list to store document objects
+    documents = []
 
-    # Create a list of messages
-    messages = [user_message]
+    # Create retrievers for each document
+    retrievers = []
 
-    template = """You are a chatbot having a conversation with a human.
+    for document_path in document_paths:
+        try:
+            # Load the text file with UTF-8 encoding
+            with open(document_path, 'r', encoding='utf-8') as file:
+                document_content = file.read()
 
-    Given the following extracted parts of a long document and a question, create a final answer.
+            # Split the document
+            document = TextLoader(document_content).load_and_split()
+            documents.append(document)
 
-    {context}
+            # Create retriever
+            retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
+            retrievers.append(retriever)
+        except Exception as e:
+            #st.error(f"Error loading document {document_path}: {str(e)}")
+            pass
 
-    {chat_history}
-    Human: {human_input}
-    Chatbot:"""
+        # Define the retriever information
+        retriever_infos = []
 
-    prompt = PromptTemplate(
-        input_variables=["chat_history", "human_input", "context"], template=template
-    )
-    memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
-    chain = load_qa_chain(
-        OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt
-    )
+    for i, retriever in enumerate(retrievers):
+        retriever_info = {
+            "name": f"document_{i}",
+            "description": f"Good for answering questions about document {i}",
+            "retriever": retriever
+        }
+        retriever_infos.append(retriever_info)
 
-    # Use the messages as input to the OpenAI API
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=messages
-    )
+    # Streamlit input field for API key
+    openai_api_key = st.text_input("Enter your OpenAI API Key", "")
 
-    # Extract the chat history from the response
-    chat_history = response['choices'][0]['message']['content']
+# Set the OpenAI API key
+    os.environ["OPENAI_API_KEY"] = openai_api_key
 
-    return chat_history
+    # Create the MultiRetrievalQAChain if API key is provided
+    chain = None
+    if openai_api_key:
+        try:
+            # Set the OpenAI API key
+            OpenAI(api_key=openai_api_key)
+            chain = MultiRetrievalQAChain.from_retrievers(OpenAI(), retriever_infos)
+        except Exception as e:
+            st.error("An error occurred while initializing the chain.")
+            st.error(str(e))
 
-# Streamlit UI
-st.title("Chatbot with Document Search")
-api_key = st.text_input("Enter your OpenAI API Key:")
-query = st.text_input("Ask a question:", "What is the paradox of Levi-Strauss's myth?")
+    return chain
 
-# Allow users to upload a file
-uploaded_file = st.file_uploader("Upload a document (TXT file):")
+# Streamlit app
+def main():
+    st.title("Question Answering with Documents")
+    st.sidebar.title("Settings")
 
-if st.button("Get Answer") and uploaded_file and api_key:
-    # Set the OpenAI API key as an environment variable
-    os.environ["OPENAI_API_KEY"] = api_key
-    
-    chat_history = load_document_and_answer(query, uploaded_file)
-    st.write("Chatbot Response:")
-    st.write(chat_history)
+    # File paths to your documents
+    uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'])
+
+    if uploaded_files:
+        document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
+        chain = initialize_qa_chain(document_paths)
+
+        # Display a successful document upload message
+        st.success("Documents successfully uploaded!")
+
+        # Input question
+        question = st.text_input("Ask a question", "")
+
+        if st.button("Get Answer"):
+            if chain and question:
+                try:
+                    answer = chain.run(question)
+                    st.success("Answer: " + answer)
+                except Exception as e:
+                    st.error("An error occurred while processing the question.")
+                    st.error(str(e))
+
+if __name__ == "__main__":
+    main()
