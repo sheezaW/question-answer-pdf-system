@@ -89,11 +89,13 @@ def main():
                 conversation_history.append(f"Model: {response}")
                 
                 # Display the conversation in a chat-like format
+                st.text("Conversation:")
                 for msg in conversation_history:
                     if msg.startswith("You:"):
-                        st.text_area("You:", msg[5:], key=msg, height=50)
+                        st.text_input("", msg[5:], key=msg)
                     else:
-                        st.text_area("Model:", msg[7:], key=msg, height=50)
+                        st.text_input("", msg[7:], key=msg)
+                
             except Exception as e:
                 st.error("An error occurred while processing the question.")
                 st.error(str(e))
