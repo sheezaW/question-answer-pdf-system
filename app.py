@@ -1,32 +1,19 @@
 import streamlit as st
-from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.chains.router import MultiRetrievalQAChain
 from langchain.llms import OpenAI
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.document_loaders import TextLoader
 from langchain.vectorstores import FAISS
 import os
-with st.sidebar:
-    st.title('Document Chat App')
-    st.markdown('''
-    ## About
-    This app is an OpenAI-powered Chatbot built using:
-    - streamlit
-    - langchain
-    - OpenAI
-    '''    
-    )
-    add_vertical_space(5)
-    st.write('Made by Solutyics')
 
+# Initialize conversation history as an empty list
+conversation_history = []
 
-# Function to initialize the MultiRetrievalQAChain
+# Initialize the MultiRetrievalQAChain
 def initialize_qa_chain(document_paths):
     # Initialize an empty list to store document objects
     documents = []
-
-    # Create retrievers for each document
-    retrievers = []
+    retriever_infos = []
 
     for document_path in document_paths:
         try:
@@ -34,32 +21,28 @@ def initialize_qa_chain(document_paths):
             with open(document_path, 'r', encoding='utf-8') as file:
                 document_content = file.read()
 
+            # Create a TextLoader for the document content
+            text_loader = TextLoader(document_content)
+
             # Split the document
-            document = TextLoader(document_content).load_and_split()
+            document = text_loader.load_and_split()
             documents.append(document)
 
             # Create retriever
-            retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
-            retrievers.append(retriever)
+            retriever = FAISS.from_documents(text_loader, OpenAIEmbeddings()).as_retriever()
+            retriever_info = {
+                "name": f"document_{len(documents) - 1}",
+                "description": f"Good for answering questions about document {len(documents) - 1}",
+                "retriever": retriever
+            }
+            retriever_infos.append(retriever_info)
         except Exception as e:
-            #st.error(f"Error loading document {document_path}: {str(e)}")
             pass
-
-        # Define the retriever information
-        retriever_infos = []
-
-    for i, retriever in enumerate(retrievers):
-        retriever_info = {
-            "name": f"document_{i}",
-            "description": f"Good for answering questions about document {i}",
-            "retriever": retriever
-        }
-        retriever_infos.append(retriever_info)
 
     # Streamlit input field for API key
     openai_api_key = st.text_input("Enter your OpenAI API Key", "")
 
-# Set the OpenAI API key
+    # Set the OpenAI API key
     os.environ["OPENAI_API_KEY"] = openai_api_key
 
     # Create the MultiRetrievalQAChain if API key is provided
@@ -77,7 +60,7 @@ def initialize_qa_chain(document_paths):
 
 # Streamlit app
 def main():
-    st.title("Question Answering with Documents")
+    st.title("Document Chat App")
     st.sidebar.title("Settings")
 
     # File paths to your documents
@@ -90,17 +73,30 @@ def main():
         # Display a successful document upload message
         st.success("Documents successfully uploaded!")
 
-        # Input question
-        question = st.text_input("Ask a question", "")
+    # Input question
+    user_input = st.text_input("You:", "")
 
-        if st.button("Get Answer"):
-            if chain and question:
-                try:
-                    answer = chain.run(question)
-                    st.success("Answer: " + answer)
-                except Exception as e:
-                    st.error("An error occurred while processing the question.")
-                    st.error(str(e))
+    if st.button("Send"):
+        if chain and user_input:
+            try:
+                # Append user's message to the conversation history
+                conversation_history.append(f"You: {user_input}")
+                
+                # Get the model's response
+                response = chain.run(" ".join(conversation_history))
+                
+                # Append model's response to the conversation history
+                conversation_history.append(f"Model: {response}")
+                
+                # Display the conversation in a chat-like format
+                for msg in conversation_history:
+                    if msg.startswith("You:"):
+                        st.text_area("You:", msg[5:], key=msg, height=50)
+                    else:
+                        st.text_area("Model:", msg[7:], key=msg, height=50)
+            except Exception as e:
+                st.error("An error occurred while processing the question.")
+                st.error(str(e))
 
 if __name__ == "__main__":
     main()
