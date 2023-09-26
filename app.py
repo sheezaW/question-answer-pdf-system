@@ -13,10 +13,7 @@ from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 
 # Function to load the document and perform question-answering
-def load_document_and_answer(api_key, query, uploaded_file):
-    # Set the OpenAI API key
-    openai.api_key = api_key
-
+def load_document_and_answer(query, uploaded_file):
     state_of_the_union = uploaded_file.read().decode("utf-8")
 
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
@@ -75,8 +72,9 @@ query = st.text_input("Ask a question:", "What is the paradox of Levi-Strauss's 
 uploaded_file = st.file_uploader("Upload a document (TXT file):")
 
 if st.button("Get Answer") and uploaded_file and api_key:
-    chat_history = load_document_and_answer(api_key, query, uploaded_file)
+    # Set the OpenAI API key as an environment variable
+    os.environ["OPENAI_API_KEY"] = api_key
+    
+    chat_history = load_document_and_answer(query, uploaded_file)
     st.write("Chatbot Response:")
     st.write(chat_history)
-
-# Note: The user can input the OpenAI API key, query, and upload a file at the same time.
