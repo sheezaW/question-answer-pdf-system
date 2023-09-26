@@ -4,4 +4,4 @@ chromadb
 tiktoken
 streamlit
 streamlit-extras
-faiss-cpu
+faiss-cpu==1.7.2
