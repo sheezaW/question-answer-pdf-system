@@ -92,7 +92,6 @@ def initialize_qa_chain(document_paths):
 
     return chain
 
-# Streamlit app
 def main():
     st.title("Question Answering with Documents")
     st.sidebar.title("Settings")
@@ -100,9 +99,12 @@ def main():
     # File paths to your documents
     uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'])
 
+    # Streamlit input field for API key
+    openai_api_key = st.text_input("Enter your OpenAI API Key", "")
+
     if uploaded_files:
         document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
-        chain = initialize_qa_chain(document_paths)
+        chain = initialize_qa_chain(document_paths, openai_api_key)
 
         # Display a successful document upload message
         st.success("Documents successfully uploaded!")
@@ -123,7 +125,7 @@ def main():
                     if relevant_content:
                         st.subheader("Relevant Content:")
                         for content in relevant_content:
-                            st.write(content)
+                            st.write(content)  # Display relevant content on the screen
                 except Exception as e:
                     st.error("An error occurred while processing the question.")
                     st.error(str(e))
