@@ -59,13 +59,17 @@ def initialize_qa_chain(document_paths, openai_api_key):
     return chain
 
 # Function to perform similarity search and retrieve context
-# Function to perform similarity search and retrieve context
 def similarity_search(chain, question):
     retrieved_context = None
     if chain and question:
         try:
-            # Create a list of candidate contexts from all documents
-            candidate_contexts = [doc.text for doc in chain.documents]
+            # Initialize an empty list to store candidate contexts
+            candidate_contexts = []
+
+            # Iterate through the retrievers and get their documents
+            for retriever_info in chain.retriever_infos:
+                retriever = retriever_info["retriever"]
+                candidate_contexts.extend([doc.text for doc in retriever.documents])
 
             # Use the OpenAI Search API to find the most relevant context
             search_response = openai.Answer.create(
@@ -81,6 +85,7 @@ def similarity_search(chain, question):
             st.error("An error occurred while performing similarity search.")
             st.error(str(e))
     return retrieved_context
+
 
 # Function to get an answer using OpenAI GPT-3.5 Turbo API
 def get_gpt_answer(context, question, document_source):
