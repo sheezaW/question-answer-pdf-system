@@ -96,8 +96,14 @@ def main():
         if st.button("Get Answer"):
             if chain and question:
                 try:
-                    answer = chain.run(question)
+                    answer, relevant_content = chain.run_with_relevant_content(question)
                     st.success("Answer: " + answer)
+                    
+                    # Display relevant content
+                    if relevant_content:
+                        st.subheader("Relevant Content:")
+                        for content in relevant_content:
+                            st.write(content)
                 except Exception as e:
                     st.error("An error occurred while processing the question.")
                     st.error(str(e))
