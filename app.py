@@ -69,7 +69,7 @@ def initialize_qa_chain(document_paths):
     for i, retriever in enumerate(retrievers):
         retriever_info = {
             "name": f"document_{i}",
-            "description": f"Good for answering questions about document {i} and telling the reference from the document",
+            "description": f"Good for answering questions from document {i} and telling the reference from the document",
             "retriever": retriever
         }
         retriever_infos.append(retriever_info)
@@ -124,11 +124,10 @@ def main():
                             st.write(content)
 
                     # Use OpenAI's GPT model to answer the question
-                    answer = openai.Completion.create(
-                        engine="text-davinci-002",  # Choose the appropriate GPT model engine
-                        prompt=question,
-                        max_tokens=900  # Adjust the max_tokens as needed
-                    )
+                    answer = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",  # Choose the appropriate GPT model engine
+                        messages=question,
+                        )
                     st.success("Answer: " + answer.choices[0].text)
                 except Exception as e:
                     st.error("An error occurred while processing the question.")
