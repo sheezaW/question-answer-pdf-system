@@ -7,8 +7,6 @@ from langchain.vectorstores import FAISS
 import openai  # Make sure you have the 'openai' library installed
 import os
 
-# Set your OpenAI API key here
-os.environ["OPENAI_API_KEY"] = "YOUR_OPENAI_API_KEY"
 
 # Function to initialize the MultiRetrievalQAChain
 def initialize_qa_chain(document_paths, openai_api_key):
