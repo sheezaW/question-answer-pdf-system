@@ -37,14 +37,16 @@ def main():
         # Get the file name without extension
         store_name = pdf.name[:-4]
 
-        if os.path.exists(f"{store_name}.pkl"):
-            with open(f"{store_name}.pkl", "rb") as f:
+        pickle_filename = f"{store_name}.pkl"
+
+        if os.path.exists(pickle_filename) and os.path.getsize(pickle_filename) > 0:
+            with open(pickle_filename, "rb") as f:
                 VectorStore = pickle.load(f)
         else:
             # Initialize text embeddings model with the API key
             embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
             VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
-            with open(f"{store_name}.pkl", "wb") as f:
+            with open(pickle_filename, "wb") as f:
                 pickle.dump(VectorStore, f)
         # Accept user questions/query
         query = st.text_input("Ask questions about your PDF file:")
