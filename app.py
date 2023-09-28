@@ -8,7 +8,7 @@ from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain.vectorstores import FAISS
-
+import os
 # Page title
 st.title("Question Answering with Langchain Streamlit App")
 
