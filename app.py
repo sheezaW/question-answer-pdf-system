@@ -43,7 +43,6 @@ def main():
                 VectorStore = pickle.load(f)
         else:
             # Initialize text embeddings model
-             else:
             embeddings = OpenAIEmbeddings()
             VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
             with open(f"{store_name}.pkl", "wb") as f:
