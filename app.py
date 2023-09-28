@@ -1,80 +1,88 @@
-import pickle
 import streamlit as st
-from PyPDF2 import PdfFileReader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.llms import OpenAI
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import Chroma
+from langchain.docstore.document import Document
 from langchain.chains.question_answering import load_qa_chain
-from langchain.callbacks import get_openai_callback
-import os
+from langchain.llms import OpenAI
+from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain.vectorstores import FAISS
 
-def main():
-    st.header("Chat with PDF 💬")
+# Page title
+st.title("Question Answering with Langchain Streamlit App")
 
-    # Upload a PDF file
-    pdf = st.file_uploader("Upload your PDF", type='pdf')
+# Prompt the user to enter their OpenAI API key
+openai_api_key = st.text_input("Enter your OpenAI API key:")
 
-    # Input for OpenAI API key
-    openai_api_key = st.text_input("Enter your OpenAI API key:")
+# Prompt the user to enter the questions
+questions = st.text_input("Enter one or more questions (separated by a comma):")
 
-    # Initialize text embeddings model with the API key
-    embeddings = None
+# Prompt the user to enter the document paths (comma-separated)
+document_paths = st.text_input("Enter document paths (comma-separated):")
 
-    if openai_api_key:
-        embeddings = OpenAIEmbeddings(api_key=openai_api_key)
+# Convert user input to a list of questions and document paths
+questions = questions.split(',')
+document_paths = document_paths.split(',')
 
-    if pdf is not None:
-        pdf_reader = PdfFileReader(pdf)
+# Initialize an empty list to store document pages
+pages = []
 
-        text = ""
-        for page in range(pdf_reader.getNumPages()):
-            text += pdf_reader.getPage(page).extract_text()
+# Read the content of each document and add it to the list of pages
+for document_path in document_paths:
+    with open(document_path.strip(), "r") as f:
+        document_content = f.read()
+        # Create Document objects for each document with the content
+        pages.append(Document(page_content=document_content, metadata={"source": document_path.strip()}))
 
-        # Split text into chunks
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len
-        )
-        chunks = text_splitter.split_text(text=text)
+# Combine the content of all specified documents into one large document
+combined_document = "\n".join([page.page_content for page in pages])
 
-        # Get the file name without extension
-        store_name = pdf.name[:-4]
+# Create a CharacterTextSplitter
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 
-        pickle_filename = f"{store_name}.pkl"
+# Split the combined document into smaller chunks
+texts = text_splitter.split_text(combined_document)
+embeddings = OpenAIEmbeddings()
 
-        if os.path.exists(pickle_filename) and os.path.getsize(pickle_filename) > 0:
-            with open(pickle_filename, "rb") as f:
-                VectorStore = pickle.load(f)
-        else:
-            if embeddings is not None:
-                VectorStore = FAISSVectorStore.from_texts(texts=chunks, embeddings=embeddings)
-                with open(pickle_filename, "wb") as f:
-                    pickle.dump(VectorStore, f)
+# Create a Chroma vector store
+docsearch = Chroma.from_texts(
+    texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
+)
 
-        # Accept user questions/query
-        query = st.text_input("Ask questions about your PDF file:")
+# Initialize FAISS index from the document pages
+faiss_index = FAISS.from_documents(pages, embeddings)
 
-        if query:
-            if embeddings is not None:  # Check if embeddings is defined
-                # Retrieve similar documents based on user query
-                query_vector = embeddings.encode_text(query)
-                similar_docs = VectorStore.search(query_vector, k=3)
+# Define a template for the conversation
+template = """You are a chatbot having a conversation with a human.
 
-                # Initialize OpenAI chatbot
-                llm = OpenAI()
-                chain = load_qa_chain(llm=llm, chain_type="stuff")
-                with get_openai_callback() as cb:
-                    responses = []
+Given the following extracted parts of a long document and a question, create a final answer.
 
-                    for doc in similar_docs:
-                        response = chain.run(input_documents=[doc], question=query)
-                        responses.append(response)
+{context}
 
-                    for i, response in enumerate(responses):
-                        st.write(f"Answer from Document {i + 1}:")
-                        st.write(response)
+{chat_history}
+Human: {human_input}
+Chatbot:"""
 
-if __name__ == '__main__':
-    main()
+# Create a PromptTemplate
+prompt = PromptTemplate(
+    input_variables=["chat_history", "human_input", "context"], template=template
+)
+
+# Create a conversation memory
+memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
+
+# Load the question-answering chain
+chain = load_qa_chain(
+    OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt
+)
+
+# Perform the similarity search and question-answering for each question when a button is clicked
+if st.button("Answer Questions"):
+    for question in questions:
+        docs = faiss_index.similarity_search(question, k=2)  # Use question for similarity search
+        chain({"input_documents": docs, "human_input": question}, return_only_outputs=True)
+        st.write(f"Question: {question}")
+        st.write("Answer:", chain.memory.buffer)
+        for doc in docs:
+            st.write(str(doc.metadata["source"]) + ":", doc.page_content[:500])
