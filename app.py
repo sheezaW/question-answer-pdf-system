@@ -41,7 +41,7 @@ text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
 
 # Split the combined document into smaller chunks
 texts = text_splitter.split_text(combined_document)
-embeddings = OpenAIEmbeddings()
+embeddings = OpenAIEmbeddings(api_key=openai_api_key)
 
 # Create a Chroma vector store
 docsearch = Chroma.from_texts(
@@ -72,7 +72,7 @@ memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_in
 
 # Load the question-answering chain
 chain = load_qa_chain(
-    OpenAI(temperature=0), chain_type="stuff", memory=memory, prompt=prompt
+    OpenAI(api_key=openai_api_key,temperature=0), chain_type="stuff", memory=memory, prompt=prompt
 )
 
 # Perform the similarity search and question-answering for each question when a button is clicked
