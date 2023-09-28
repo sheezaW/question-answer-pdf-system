@@ -43,15 +43,11 @@ def main():
                 VectorStore = pickle.load(f)
         else:
             # Initialize text embeddings model
-            embeddings = USE2()
-            VectorStore = SimilarityEngine()
-            for chunk in chunks:
-                vector = embeddings.encode(chunk)
-                VectorStore.add(Vector(data=vector))
-
+             else:
+            embeddings = OpenAIEmbeddings()
+            VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
             with open(f"{store_name}.pkl", "wb") as f:
                 pickle.dump(VectorStore, f)
-
         # Accept user questions/query
         query = st.text_input("Ask questions about your PDF file:")
 
