@@ -11,13 +11,12 @@ import os
 
 def main():
     st.header("Chat with PDF 💬")
-    # Input for OpenAI API key
-    openai_api_key = st.text_input("Enter your OpenAI API key:")
 
     # Upload a PDF file
     pdf = st.file_uploader("Upload your PDF", type='pdf')
 
-    
+    # Input for OpenAI API key
+    openai_api_key = st.text_input("Enter your OpenAI API key:")
 
     if pdf is not None:
         pdf_reader = PdfReader(pdf)
@@ -41,8 +40,8 @@ def main():
             with open(f"{store_name}.pkl", "rb") as f:
                 VectorStore = pickle.load(f)
         else:
-            # Initialize text embeddings model
-            embeddings = OpenAIEmbeddings()
+            # Initialize text embeddings model with the API key
+            embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
             VectorStore = FAISS.from_texts(chunks, embedding=embeddings)
             with open(f"{store_name}.pkl", "wb") as f:
                 pickle.dump(VectorStore, f)
@@ -55,21 +54,19 @@ def main():
             similar_docs = VectorStore.search(query_vector, k=3)
 
             # Initialize OpenAI chatbot
-            if openai_api_key:
-                llm = OpenAI()
-                chain = load_qa_chain(llm=llm, chain_type="stuff")
-                with get_openai_callback() as cb:
-                    responses = []
+            llm = OpenAI()
+            chain = load_qa_chain(llm=llm, chain_type="stuff")
+            with get_openai_callback() as cb:
+                responses = []
 
-                    for doc in similar_docs:
-                        response = chain.run(input_documents=[doc.data], question=query)
-                        responses.append(response)
+                for doc in similar_docs:
+                    response = chain.run(input_documents=[doc.data], question=query)
+                    responses.append(response)
 
-                    for i, response in enumerate(responses):
-                        st.write(f"Answer from Document {i + 1}:")
-                        st.write(response)
-            else:
-                st.warning("OpenAI API key not found. Please enter your API key above.")
-
+                for i, response in enumerate(responses):
+                    st.write(f"Answer from Document {i + 1}:")
+                    st.write(response)
+ 
 if __name__ == '__main__':
     main()
+
