@@ -18,24 +18,22 @@ openai_api_key = st.text_input("Enter your OpenAI API key:")
 # Prompt the user to enter the questions
 questions = st.text_input("Enter one or more questions (separated by a comma):")
 
-# Prompt the user to enter the document paths (comma-separated)
-document_paths = st.text_input("Enter document paths (comma-separated):")
+# Allow users to upload multiple files
+uploaded_files = st.file_uploader("Upload one or more text files:", accept_multiple_files=True)
 
-# Convert user input to a list of questions and document paths
+# Convert user input to a list of questions
 questions = questions.split(',')
-document_paths = document_paths.split(',')
 
 # Initialize an empty list to store document pages
 pages = []
 
-# Read the content of each document and add it to the list of pages
-for document_path in document_paths:
-    with open(document_path.strip(), "r") as f:
-        document_content = f.read()
-        # Create Document objects for each document with the content
-        pages.append(Document(page_content=document_content, metadata={"source": document_path.strip()}))
+# Read the content of each uploaded file and add it to the list of pages
+for uploaded_file in uploaded_files:
+    document_content = uploaded_file.read()
+    # Create Document objects for each document with the content
+    pages.append(Document(page_content=document_content, metadata={"source": uploaded_file.name}))
 
-# Combine the content of all specified documents into one large document
+# Combine the content of all uploaded documents into one large document
 combined_document = "\n".join([page.page_content for page in pages])
 
 # Create a CharacterTextSplitter
