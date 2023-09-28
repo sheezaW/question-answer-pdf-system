@@ -1,11 +1,15 @@
-import os
 import streamlit as st
+from dotenv import load_dotenv
 import pickle
-from pdfplumber import PdfReader
-from vectorhub.encoders.text.tfhub import USE2
-from vectorhub.faiss import SimilarityEngine
-from vectorhub.tools.vectors import Vector
-from transformers import pipeline
+from PyPDF2 import PdfReader
+from streamlit_extras.add_vertical_space import add_vertical_space
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import FAISS
+from langchain.llms import OpenAI
+from langchain.chains.question_answering import load_qa_chain
+from langchain.callbacks import get_openai_callback
+import os
 
 # Load OpenAI API key from environment variable
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
