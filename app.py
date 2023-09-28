@@ -1,6 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
-import pickle
 from PyPDF2 import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -11,14 +9,14 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.callbacks import get_openai_callback
 import os
 
-# Load OpenAI API key from environment variable
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
 def main():
     st.header("Chat with PDF 💬")
 
     # Upload a PDF file
     pdf = st.file_uploader("Upload your PDF", type='pdf')
+
+    # Input for OpenAI API key
+    openai_api_key = st.text_input("Enter your OpenAI API key:")
 
     if pdf is not None:
         pdf_reader = PdfReader(pdf)
@@ -56,19 +54,21 @@ def main():
             similar_docs = VectorStore.search(query_vector, k=3)
 
             # Initialize OpenAI chatbot
-            if OPENAI_API_KEY:
-                chatbot = pipeline("question-answering", model="gpt-3.5-turbo", token=OPENAI_API_KEY)
-                responses = []
+            if openai_api_key:
+                llm = OpenAI()
+                chain = load_qa_chain(llm=llm, chain_type="stuff")
+                with get_openai_callback() as cb:
+                    responses = []
 
-                for doc in similar_docs:
-                    response = chatbot(question=query, context=doc.data)
-                    responses.append(response)
+                    for doc in similar_docs:
+                        response = chain.run(input_documents=[doc.data], question=query)
+                        responses.append(response)
 
-                for i, response in enumerate(responses):
-                    st.write(f"Answer from Document {i + 1}:")
-                    st.write(response['answer'])
+                    for i, response in enumerate(responses):
+                        st.write(f"Answer from Document {i + 1}:")
+                        st.write(response)
             else:
-                st.warning("OpenAI API key not found. Please set it in your environment variables.")
+                st.warning("OpenAI API key not found. Please enter your API key above.")
 
 if __name__ == '__main__':
     main()
