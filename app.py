@@ -1,6 +1,5 @@
 import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores.elastic_vector_search import ElasticVectorSearch
 from langchain.vectorstores import Chroma
 from langchain.chains.question_answering import load_qa_chain
@@ -8,8 +7,8 @@ from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
-import re
 
 # Initialize Streamlit app
 st.title("Document Question Answering App")
@@ -21,15 +20,21 @@ openai_key = st.sidebar.text_input("Enter your OpenAI API key")
 # User input for uploading a text file
 uploaded_file = st.file_uploader("Upload a text file", type=["txt"])
 if uploaded_file is not None:
-    # Use the uploaded file's content directly with a context manager
-    with uploaded_file as file_contents:
-        # Read the content of the uploaded file
-        text_contents = file_contents.read()
-    
+    # Use the RecursiveCharacterTextSplitter to split the text
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
+
+    # Read the content of the uploaded file
+    file_contents = uploaded_file.read()
     st.sidebar.success("File uploaded successfully!")
 
-    # Split the text into smaller chunks (assuming paragraphs are separated by two newline characters)
-    texts = re.split('\n\n', text_contents)
+    # Split the text into smaller chunks using RecursiveCharacterTextSplitter
+    texts = text_splitter.split_documents(file_contents)
+
+    # Create embeddings and a document search index
+    embeddings = OpenAIEmbeddings()
+    docsearch = Chroma.from_texts(
+        texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
+    )
 
     # User input for questions
     question = st.text_input("Ask a question about the document")
@@ -70,18 +75,3 @@ if uploaded_file is not None:
             # Store the conversation history
             st.write("Human:", question)
             st.write("Chatbot:", response)
-# Option to ask more questions about the same document
-if st.button("Ask More Questions"):
-    question = st.text_input("Ask another question about the document")
-    if question:
-        # Perform similarity search and generate a response
-        docs = docsearch.similarity_search(question)
-        response = chain({"input_documents": docs, "human_input": question}, return_only_outputs=True)
-
-        # Display the response
-        st.subheader("Chatbot's Response:")
-        st.write(response)
-
-        # Store the conversation history
-        st.write("Human:", question)
-        st.write("Chatbot:", response)
