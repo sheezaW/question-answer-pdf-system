@@ -72,7 +72,7 @@ memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_in
 
 # Load the question-answering chain
 chain = load_qa_chain(
-    OpenAI(api_key=openai_api_keytemperature=0), chain_type="stuff", memory=memory, prompt=prompt
+    OpenAI(api_key=openai_api_key,temperature=0), chain_type="stuff", memory=memory, prompt=prompt
 )
 
 # Perform the similarity search and question-answering for each question when a button is clicked
