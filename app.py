@@ -8,6 +8,7 @@ from langchain.llms import OpenAI
 from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain.docstore.document import Document
+import os
 
 # Initialize Streamlit app
 st.title("Document Question Answering App")
@@ -22,7 +23,7 @@ if uploaded_file is not None:
     file_contents = uploaded_file.read()
     st.sidebar.success("File uploaded successfully!")
 
-    # Split the text into smaller chunks
+    # Use the CharacterTextSplitter to split the text
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_text(file_contents)
 
@@ -71,7 +72,6 @@ if uploaded_file is not None:
             # Store the conversation history
             st.write("Human:", question)
             st.write("Chatbot:", response)
-
 # Option to ask more questions about the same document
 if st.button("Ask More Questions"):
     question = st.text_input("Ask another question about the document")
