@@ -14,7 +14,7 @@ st.title("Question Answering with Langchain Streamlit App")
 
 # Prompt the user to enter their OpenAI API key
 openai_api_key = st.text_input("Enter your OpenAI API key:")
-
+os.environ["OPENAI_API_KEY"] = openai_api_key
 # Prompt the user to enter the questions
 questions = st.text_input("Enter one or more questions (separated by a comma):")
 
