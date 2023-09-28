@@ -1,146 +1,97 @@
 import streamlit as st
-from langchain.chains.router import MultiRetrievalQAChain
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores.elastic_vector_search import ElasticVectorSearch
+from langchain.vectorstores import Chroma
+from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.document_loaders import TextLoader
-from langchain.vectorstores import FAISS
-import openai  # Make sure you have the 'openai' library installed
+from langchain.prompts import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain.docstore.document import Document
 import os
 
-# Function to initialize the MultiRetrievalQAChain
-def initialize_qa_chain(document_paths, openai_api_key):
-    # Initialize an empty list to store document objects
-    documents = []
+# Define a function to load and process the document
+def process_document(file_contents):
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_text(file_contents)
+    embeddings = OpenAIEmbeddings()
+    docsearch = Chroma.from_texts(
+        texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
+    )
+    return docsearch, texts
 
-    # Create retrievers for each document
-    retrievers = []
-
-    for document_path in document_paths:
-        try:
-            # Load the text file with UTF-8 encoding
-            with open(document_path, 'r', encoding='utf-8') as file:
-                document_content = file.read()
-
-            # Split the document
-            document = TextLoader(document_content).load_and_split()
-            documents.append(document)
-
-            # Create retriever
-            retriever = FAISS.from_documents(document, OpenAIEmbeddings()).as_retriever()
-            retrievers.append(retriever)
-        except Exception as e:
-            # st.error(f"Error loading document {document_path}: {str(e)}")
-            pass
-
-    # Define the retriever information
-    retriever_infos = []
-
-    for i, retriever in enumerate(retrievers):
-        retriever_info = {
-            "name": f"document_{i}",
-            "description": f"Good for answering questions about document {i}",
-            "retriever": retriever
-        }
-        retriever_infos.append(retriever_info)
-
-    # Create the MultiRetrievalQAChain
-    chain = None
-    if openai_api_key:
-        try:
-            OpenAI(api_key=openai_api_key)
-            chain = MultiRetrievalQAChain.from_retrievers(OpenAI(), retriever_infos)
-        except Exception as e:
-            st.error("An error occurred while initializing the chain.")
-            st.error(str(e))
-
-    return chain
-
-def similarity_search(chain, question, document_paths, openai_api_key):
-    retrieved_context = None
-    if chain and question:
-        try:
-            # Initialize an empty list to store candidate contexts
-            candidate_contexts = []
-
-            # Iterate through the documents you loaded
-            for document_path in document_paths:
-                try:
-                    # Load the text file with UTF-8 encoding
-                    with open(document_path, 'r', encoding='utf-8') as file:
-                        document_content = file.read()
-                    
-                    # Add the document content to the candidate contexts
-                    candidate_contexts.append(document_content)
-                except Exception as e:
-                    # Handle any errors while loading documents
-                    pass
-
-            # Join the candidate contexts into a single string
-            candidate_context = " ".join(candidate_contexts)
-
-            # Use the OpenAI GPT-3 API to generate an answer based on the question and candidate context
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",  # Use the "gpt-3.5-turbo" engine
-                messages=f"Context: {candidate_context}\nQuestion: {question}\nAnswer:",
-                api_key=openai_api_key  # Use the OpenAI API key
-            )
-
-            retrieved_context = response.choices[0].text.strip()
-        except Exception as e:
-            st.error("An error occurred while performing similarity search.")
-            st.error(str(e))
-    return retrieved_context
-
-def get_gpt_answer(context, question, document_source, api_key):
-    try:
-        # Call OpenAI's GPT-3.5 Turbo API to get an answer
-        response = openai.ChatCompletion.create(
-            models="gpt-3.5-turbo",  # Use the "gpt-3.5-turbo" engine
-            messages=f"Context: {context}\nQuestion: {question}\nAnswer (from document {document_source}):",
-            api_key=api_key
-        )
-
-        answer = response.choices[0].text.strip()
-        return answer
-    except Exception as e:
-        st.error("An error occurred while calling the GPT-3.5 Turbo API.")
-        st.error(str(e))
-
-# ...
-
-# Streamlit app
+# Define a Streamlit app
 def main():
-    st.title("Question Answering with Documents")
-    st.sidebar.title("Settings")
+    st.title("Document Question Answering App")
+    st.sidebar.header("Settings")
 
-    # File paths to your documents
-    uploaded_files = st.file_uploader("Upload Documents", accept_multiple_files=True, type=['txt'], key="document_uploader")
+    # User input for OpenAI key
+    openai_key = st.sidebar.text_input("Enter your OpenAI API key")
 
-    if uploaded_files:
-        document_paths = [uploaded_file.name for uploaded_file in uploaded_files]
+    # User input for uploading a text file
+    uploaded_file = st.file_uploader("Upload a text file", type=["txt"])
+    if uploaded_file is not None:
+        file_contents = uploaded_file.read()
+        st.sidebar.success("File uploaded successfully!")
 
-        # Input OpenAI API key
-        openai_api_key = st.text_input("Enter your OpenAI API Key", "")
+        # Process the document and create a document search index
+        docsearch, texts = process_document(file_contents)
 
-        chain = initialize_qa_chain(document_paths, openai_api_key)
+        # User input for questions
+        question = st.text_input("Ask a question about the document")
 
-        # Display a successful document upload message
-        st.success("Documents successfully uploaded!")
+        if st.button("Ask Question"):
+            if not openai_key:
+                st.error("Please enter your OpenAI API key.")
+            elif not question:
+                st.error("Please enter a question.")
+            else:
+                # Load the question-answering chain
+                template = """You are a chatbot having a conversation with a human.
 
-        # Input question
-        question = st.text_input("Ask a question", "")
+                Given the following extracted parts of a long document and a question, create a final answer.
 
-        if st.button("Get Answer"):
-            if chain and question:
-                # Perform similarity search to retrieve context
-                retrieved_context = similarity_search(chain, question, document_paths, openai_api_key)
-                if retrieved_context:
-                    # Now you can pass the retrieved context to GPT for answering
-                    answer = get_gpt_answer(retrieved_context, question, "source_document", openai_api_key)
-                    st.success("Answer: " + answer)
-                else:
-                    st.error("No relevant context found.")
+                {context}
 
-if _name_ == "_main_":
+                {chat_history}
+                Human: {human_input}
+                Chatbot:"""
+
+                prompt = PromptTemplate(
+                    input_variables=["chat_history", "human_input", "context"], template=template
+                )
+                memory = ConversationBufferMemory(memory_key="chat_history", input_key="human_input")
+                chain = load_qa_chain(
+                    OpenAI(temperature=0, api_key=openai_key), chain_type="stuff", memory=memory, prompt=prompt
+                )
+
+                # Perform similarity search and generate a response
+                docs = docsearch.similarity_search(question)
+                response = chain({"input_documents": docs, "human_input": question}, return_only_outputs=True)
+
+                # Display the response
+                st.subheader("Chatbot's Response:")
+                st.write(response)
+
+                # Store the conversation history
+                chain.memory.buffer.append(f"Human: {question}")
+                chain.memory.buffer.append(f"Chatbot: {response}")
+
+    # Option to ask more questions about the same document
+    if st.button("Ask More Questions"):
+        question = st.text_input("Ask another question about the document")
+        if question:
+            # Perform similarity search and generate a response
+            docs = docsearch.similarity_search(question)
+            response = chain({"input_documents": docs, "human_input": question}, return_only_outputs=True)
+
+            # Display the response
+            st.subheader("Chatbot's Response:")
+            st.write(response)
+
+            # Store the conversation history
+            chain.memory.buffer.append(f"Human: {question}")
+            chain.memory.buffer.append(f"Chatbot: {response}")
+
+if __name__ == "__main__":
     main()
-explain what is happening in this code
