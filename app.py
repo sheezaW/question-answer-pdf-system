@@ -9,6 +9,7 @@ from langchain.prompts import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain.docstore.document import Document
 import os
+import re
 
 # Initialize Streamlit app
 st.title("Document Question Answering App")
@@ -20,18 +21,15 @@ openai_key = st.sidebar.text_input("Enter your OpenAI API key")
 # User input for uploading a text file
 uploaded_file = st.file_uploader("Upload a text file", type=["txt"])
 if uploaded_file is not None:
-    file_contents = uploaded_file.read()
+    # Use the uploaded file's content directly with a context manager
+    with uploaded_file as file_contents:
+        # Read the content of the uploaded file
+        text_contents = file_contents.read()
+    
     st.sidebar.success("File uploaded successfully!")
 
-    # Use the CharacterTextSplitter to split the text
-    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    texts = text_splitter.split_text(file_contents)
-
-    # Create embeddings and a document search index
-    embeddings = OpenAIEmbeddings()
-    docsearch = Chroma.from_texts(
-        texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
-    )
+    # Split the text into smaller chunks (assuming paragraphs are separated by two newline characters)
+    texts = re.split('\n\n', text_contents)
 
     # User input for questions
     question = st.text_input("Ask a question about the document")
