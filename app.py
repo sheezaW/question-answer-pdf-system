@@ -11,12 +11,13 @@ import os
 
 def main():
     st.header("Chat with PDF 💬")
+    # Input for OpenAI API key
+    openai_api_key = st.text_input("Enter your OpenAI API key:")
 
     # Upload a PDF file
     pdf = st.file_uploader("Upload your PDF", type='pdf')
 
-    # Input for OpenAI API key
-    openai_api_key = st.text_input("Enter your OpenAI API key:")
+    
 
     if pdf is not None:
         pdf_reader = PdfReader(pdf)
