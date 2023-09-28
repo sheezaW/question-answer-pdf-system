@@ -11,7 +11,11 @@ from langchain.docstore.document import Document
 import os
 
 # Define a function to load and process the document
+# Define a function to load and process the document
 def process_document(file_contents):
+    # Decode the file contents from bytes to a string
+    file_contents = file_contents.decode("utf-8")  # You may need to use a different encoding if your file is not UTF-8 encoded
+    
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_text(file_contents)
     embeddings = OpenAIEmbeddings()
@@ -19,6 +23,7 @@ def process_document(file_contents):
         texts, embeddings, metadatas=[{"source": i} for i in range(len(texts))]
     )
     return docsearch, texts
+
 
 # Define a Streamlit app
 def main():
